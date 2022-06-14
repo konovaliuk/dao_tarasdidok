@@ -18,12 +18,11 @@ public class BookDao implements IBookDao {
     protected Connection connection = null;
     protected final Logger logger = LogManager.getLogger("Book Dao");
     protected final String findAllSqlQuery = "select * from " + getTableName() + "";
-    protected final String findByIdSqlQuery = "select * from" + getTableName() + " where book_id=?";
-    protected final String findByAuthorSqlQuery = "select * from" + getTableName() + " where author_id = ?";
-    protected final String findByTitleSqlQuery = "select * from " + getTableName() + "where title like '%?%'";
+    protected final String findByIdSqlQuery = "select * from " + getTableName() + " where book_id=?";
+    protected final String findByAuthorSqlQuery = "select * from " + getTableName() + " where author_id = ?";
+    protected final String findByTitleSqlQuery = "select * from " + getTableName() + " where title like ?";
     protected final String saveSqlQuery = "insert into " + getTableName() +
-            " (author_id, title, pages, placement)" + " values (?, ?, ?, ?)";
-    protected final String updateSqlQuery = "update " + getTableName() + " set ? = ? where book_id = ?";
+            " (author_id, title, pages)" + " values (?, ?, ?)";
     protected final String deleteSqlQuery = "delete from " + getTableName() + " where book_id=?";
 
     public BookDao() {
@@ -32,9 +31,10 @@ public class BookDao implements IBookDao {
 
     public void closeConnection() {
         try {
-            connection.close();
-        } catch (SQLException exception) {
-            logger.warn(exception);
+            if (this.connection == null || this.connection.isClosed())
+                this.connection = ConnectionPool.createConnection();
+        } catch (SQLException ex) {
+            logger.error(ex);
         }
     }
 
@@ -47,9 +47,8 @@ public class BookDao implements IBookDao {
         long authorId = resultSet.getLong("author_id");
         String title = resultSet.getString("title");
         long pages = resultSet.getLong("pages");
-        long placement = resultSet.getLong("placement");
         long reader = resultSet.getLong("reader");
-        return new Book(bookId, authorId, title, pages, placement, reader);
+        return new Book(bookId, authorId, title, pages, reader);
     }
 
     public List<Book> findAll() {
@@ -73,7 +72,7 @@ public class BookDao implements IBookDao {
         List<Book> bookList = new ArrayList<>();
         try {
             PreparedStatement preparedStatement = this.connection.prepareStatement(findByTitleSqlQuery);
-            preparedStatement.setString(1, titlePart);
+            preparedStatement.setString(1, "%" + titlePart + "%");
             ResultSet resultSet = preparedStatement.executeQuery();
             while (resultSet.next()) {
                 Book book = getBook(resultSet);
@@ -105,6 +104,27 @@ public class BookDao implements IBookDao {
         return bookList;
     }
 
+    public List<Book> findByAuthor(String name, String lastname) {
+        List<Book> bookList = new ArrayList<>();
+        try {
+            AuthorDao authorDao = DaoFactory.getAuthorDao();
+            Author author = authorDao.findByFullName(name, lastname);
+            if (author == null) throw new Exception("Author not found");
+            PreparedStatement preparedStatement = this.connection.prepareStatement(findByAuthorSqlQuery);
+            preparedStatement.setLong(1, author.getAuthorId());
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                Book book = getBook(resultSet);
+                bookList.add(book);
+            }
+            resultSet.close();
+            preparedStatement.close();
+        } catch (Exception error) {
+            logger.error(error);
+        }
+        return bookList;
+    }
+
     public Book findById(long id) {
         Book book = null;
         try {
@@ -122,14 +142,31 @@ public class BookDao implements IBookDao {
         return book;
     }
 
-    public long save(long authorId, String title, long pages, long placement) {
+    public long save(long authorId, String title, long pages) {
         long rowsAffected = 0;
         try {
             PreparedStatement preparedStatement = this.connection.prepareStatement(saveSqlQuery);
             preparedStatement.setLong(1, authorId);
             preparedStatement.setString(2, title);
             preparedStatement.setLong(3, pages);
-            preparedStatement.setLong(4, placement);
+            rowsAffected = preparedStatement.executeUpdate();
+            preparedStatement.close();
+        } catch (Exception error) {
+            logger.error(error);
+        }
+        return rowsAffected;
+    }
+
+    public long save(String authorName, String authorLastname, String title, long pages) {
+        long rowsAffected = 0;
+        try {
+            AuthorDao authorDao = DaoFactory.getAuthorDao();
+            Author author = authorDao.findByFullName(authorName, authorLastname);
+            if (author == null) throw new Exception("Author not found");
+            PreparedStatement preparedStatement = this.connection.prepareStatement(saveSqlQuery);
+            preparedStatement.setLong(1, author.getAuthorId());
+            preparedStatement.setString(2, title);
+            preparedStatement.setLong(3, pages);
             rowsAffected = preparedStatement.executeUpdate();
             preparedStatement.close();
         } catch (Exception error) {
@@ -139,12 +176,12 @@ public class BookDao implements IBookDao {
     }
 
     public long update(long id, String property, String value) {
+        final String updateSqlQuery = "update `" + getTableName() + "` set " + property + "=? where book_id=?";
         long rowsAffected = 0;
         try {
             PreparedStatement preparedStatement = this.connection.prepareStatement(updateSqlQuery);
-            preparedStatement.setString(1, property);
-            preparedStatement.setString(2, value);
-            preparedStatement.setLong(3, id);
+            preparedStatement.setString(1, value);
+            preparedStatement.setLong(2, id);
             rowsAffected = preparedStatement.executeUpdate();
             preparedStatement.close();
         } catch (Exception error) {
@@ -153,13 +190,13 @@ public class BookDao implements IBookDao {
         return rowsAffected;
     }
 
-    public long update(long id, String property, Long value) {
+    public long update(long id, String property, long value) {
+        final String updateSqlQuery = "update `" + getTableName() + "` set " + property + "=? where book_id=?";
         long rowsAffected = 0;
         try {
             PreparedStatement preparedStatement = this.connection.prepareStatement(updateSqlQuery);
-            preparedStatement.setString(1, property);
-            preparedStatement.setLong(2, value);
-            preparedStatement.setLong(3, id);
+            preparedStatement.setLong(1, value);
+            preparedStatement.setLong(2, id);
             rowsAffected = preparedStatement.executeUpdate();
             preparedStatement.close();
         } catch (Exception error) {

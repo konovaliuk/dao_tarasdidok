@@ -13,7 +13,11 @@ public interface IBookDao {
 
     List<Book> findByAuthor(long authorId) throws Exception;
 
-    long save(long authorId, String title, long pages, long placement) throws Exception;
+    List<Book> findByAuthor(String name, String lastname);
+
+    long save(long authorId, String title, long pages) throws Exception;
+
+    long save(String authorName, String authorLastname, String title, long pages) throws Exception;
 
     long update(long id, String property, String value);
 

@@ -5,15 +5,13 @@ public class Book {
     private long authorId;
     private String title;
     private long pages;
-    private Long placement;
-    private Long reader;
+    private long reader;
 
-    public Book(long bookId, long authorId, String title, long pages, long placement, long reader){
+    public Book(long bookId, long authorId, String title, long pages, long reader) {
         this.bookId = bookId;
         this.authorId = authorId;
         this.title = title;
         this.pages = pages;
-        this.placement = placement;
         this.reader = reader;
     }
 
@@ -49,24 +47,16 @@ public class Book {
         this.pages = pages;
     }
 
-    public Long getPlacement() {
-        return placement;
-    }
-
-    public void setPlacement(Long placement) {
-        this.placement = placement;
-    }
-
-    public Long getReader() {
+    public long getReader() {
         return reader;
     }
 
-    public void setReader(Long reader) {
+    public void setReader(long reader) {
         this.reader = reader;
     }
 
     public String toString() {
         return this.getBookId() + "\t" + this.getAuthorId() + "\t" + this.getTitle() + "\t" + this.getPages()
-                + "\t" + this.getPlacement() + "\t" + this.getReader();
+                /*+ "\t" + this.getReader()*/;
     }
 }

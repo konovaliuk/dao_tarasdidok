@@ -18,12 +18,19 @@ public class AuthorDao implements IAuthorDao {
     protected Connection connection = null;
     protected final Logger logger = LogManager.getLogger("Author Dao");
     protected final String findAllSqlQuery = "select * from " + getTableName() + "";
-    protected final String findByIdSqlQuery = "select * from" + getTableName() + " where author_id=?";
+    protected final String findByIdSqlQuery = "select * from " + getTableName() + " where author_id=?";
+    protected final String findByFullNameSqlQuery = "select * from " + getTableName() + " where `name`=? and `lastname`=?";
     protected final String saveSqlQuery = "insert into " + getTableName() + " (name, lastname)" + " values (?, ?)";
-    protected final String updateSqlQuery = "update " + getTableName() + " set ? = ? where author_id = ?";
     protected final String deleteSqlQuery = "delete from " + getTableName() + " where author_id=?";
 
-    public AuthorDao(){ this.connection = ConnectionPool.createConnection(); }
+    public AuthorDao() {
+        try {
+            if (this.connection == null || this.connection.isClosed())
+                this.connection = ConnectionPool.createConnection();
+        } catch (SQLException ex) {
+            logger.error(ex);
+        }
+    }
 
     public void closeConnection() {
         try {
@@ -37,7 +44,7 @@ public class AuthorDao implements IAuthorDao {
         return "author";
     }
 
-    private Author getAuthor(ResultSet resultSet) throws SQLException{
+    private Author getAuthor(ResultSet resultSet) throws SQLException {
         long id = resultSet.getLong("author_id");
         String name = resultSet.getString("name");
         String lastname = resultSet.getString("lastname");
@@ -78,9 +85,28 @@ public class AuthorDao implements IAuthorDao {
         return author;
     }
 
+    public Author findByFullName(String name, String lastname) {
+        Author author = null;
+        try {
+            PreparedStatement preparedStatement = this.connection.prepareStatement(findByFullNameSqlQuery);
+            preparedStatement.setString(1, name);
+            preparedStatement.setString(2, lastname);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                author = getAuthor(resultSet);
+            }
+            resultSet.close();
+            preparedStatement.close();
+        } catch (Exception error) {
+            logger.error(error);
+        }
+        return author;
+    }
+
     public long save(String name, String lastname) {
         long rowsAffected = 0;
         try {
+            if (this.findByFullName(name, lastname) != null) throw new Exception("This author is already added");
             PreparedStatement preparedStatement = this.connection.prepareStatement(saveSqlQuery);
             preparedStatement.setString(1, name);
             preparedStatement.setString(2, lastname);
@@ -93,12 +119,12 @@ public class AuthorDao implements IAuthorDao {
     }
 
     public long update(long id, String property, String value) {
+        final String updateSqlQuery = "update " + getTableName() + " set " + property + " = ? where author_id = ?";
         long rowsAffected = 0;
         try {
             PreparedStatement preparedStatement = this.connection.prepareStatement(updateSqlQuery);
-            preparedStatement.setString(1, property);
-            preparedStatement.setString(2, value);
-            preparedStatement.setLong(3, id);
+            preparedStatement.setString(1, value);
+            preparedStatement.setLong(2, id);
             rowsAffected = preparedStatement.executeUpdate();
             preparedStatement.close();
         } catch (Exception error) {

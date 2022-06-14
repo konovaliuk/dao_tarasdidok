@@ -17,6 +17,7 @@ public class RoleDao implements IRoleDao {
     protected Connection connection;
     protected final Logger logger = LogManager.getLogger("Role Dao");
     protected final String findAllSqlQuery = "select * from " + getTableName() + "";
+    protected final String findByNameSqlQuery = "select * from " + getTableName() + " where role_name =?";
     protected final String saveSqlQuery = "insert into " + getTableName() + " (role_name)" + " values (?)";
     protected final String updateSqlQuery = "update " + getTableName() + " set role_name = ? where role_id = ?";
     protected final String deleteSqlQuery = "delete from " + getTableName() + " where role_id=?";
@@ -24,7 +25,12 @@ public class RoleDao implements IRoleDao {
     protected final String COLUMN_NAME = "role_name";
 
     public RoleDao() {
-        this.connection = ConnectionPool.createConnection();
+        try {
+            if (this.connection == null || this.connection.isClosed())
+                this.connection = ConnectionPool.createConnection();
+        } catch (SQLException ex) {
+            logger.error(ex);
+        }
     }
 
     public void closeConnection() {
@@ -60,6 +66,23 @@ public class RoleDao implements IRoleDao {
             logger.error(error);
         }
         return roleList;
+    }
+
+    public Role findByName(String roleName) {
+        Role role = null;
+        try {
+            PreparedStatement preparedStatement = this.connection.prepareStatement(findByNameSqlQuery);
+            preparedStatement.setString(1, roleName);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                role = getRole(resultSet);
+            }
+            resultSet.close();
+            preparedStatement.close();
+        } catch (Exception error) {
+            logger.error(error);
+        }
+        return role;
     }
 
     public long save(String name) {

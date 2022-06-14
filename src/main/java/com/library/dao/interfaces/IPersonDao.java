@@ -9,6 +9,8 @@ public interface IPersonDao {
 
     Person findById(long id) throws Exception;
 
+    Person findByPhone(String phone) throws Exception;
+
     long save(long roleId, String name, String lastname, String email, String phone) throws Exception;
 
     long update(long id, String property, String value);

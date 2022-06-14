@@ -5,29 +5,33 @@ import com.library.dao.interfaces.IOrderDao;
 import com.library.entities.Book;
 import com.library.entities.Order;
 import com.library.entities.OrderStatus;
-import com.library.entities.Person;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.sql.*;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
 public class OrderDao implements IOrderDao {
     protected Connection connection = null;
     protected final Logger logger = LogManager.getLogger("Order Dao");
-    protected final String findAllSqlQuery = "select * from " + getTableName() + "";
-    protected final String findByIdSqlQuery = "select * from" + getTableName() + " where order_id=?";
-    protected final String findByReaderSqlQuery = "select * from" + getTableName() + " where reader_id=?";
-    protected final String findByStatusSqlQuery = "select * from" + getTableName() + " where status=?";
-    protected final String saveSqlQuery = "insert into " + getTableName() +
-            " (status, start_date, end_date, reader_id, book_id)" + " values (ongoing, ?, ?, ?, ?)";
-    protected final String updateSqlQuery = "update " + getTableName() + " set ? = ? where order_id = ?";
-    protected final String deleteSqlQuery = "delete from " + getTableName() + " where order_id=?";
+    protected final String findAllSqlQuery = "select * from `" + getTableName() + "`";
+    protected final String findByIdSqlQuery = "select * from `" + getTableName() + "` where order_id=?";
+    protected final String findByReaderSqlQuery = "select * from `" + getTableName() + "` where reader_id=?";
+    protected final String findByStatusSqlQuery = "select * from `" + getTableName() + "` where status=?";
+    protected final String saveSqlQuery = "insert into `" + getTableName() +
+            "` (status, start_date, end_date, reader_id, book_id)" + " values (\"ongoing\", ?, ?, ?, ?)";
+    protected final String deleteSqlQuery = "delete from `" + getTableName() + "` where order_id=?";
 
     public OrderDao() {
-        this.connection = ConnectionPool.createConnection();
+        try {
+            if (this.connection == null || this.connection.isClosed())
+                this.connection = ConnectionPool.createConnection();
+        } catch (SQLException ex) {
+            logger.error(ex);
+        }
     }
 
     public void closeConnection() {
@@ -44,11 +48,12 @@ public class OrderDao implements IOrderDao {
 
     private Order getOrder(ResultSet resultSet) throws SQLException {
         long orderId = resultSet.getLong("order_id");
+        OrderStatus status = OrderStatus.valueOf(resultSet.getString("status"));
         LocalDate startDate = resultSet.getDate("start_date").toLocalDate();
         LocalDate endDate = resultSet.getDate("end_date").toLocalDate();
         long readerId = resultSet.getLong("reader_id");
         long bookId = resultSet.getLong("book_id");
-        return new Order(orderId, startDate, endDate, readerId, bookId);
+        return new Order(orderId, status, startDate, endDate, readerId, bookId);
     }
 
     public List<Order> findAll() {
@@ -127,7 +132,9 @@ public class OrderDao implements IOrderDao {
         try {
             BookDao bookDao = DaoFactory.getBookDao();
             Book book = bookDao.findById(bookId);
-            if (book==null || book.getPlacement()==null) throw new Exception("Book is not available");
+            if (book == null || book.getReader() != 0) throw new Exception("Book is not available");
+            if (ChronoUnit.DAYS.between(startDate, endDate) > 30 || ChronoUnit.DAYS.between(startDate, endDate) < 0)
+                throw new Exception("Invalid date period");
             PreparedStatement preparedStatement = this.connection.prepareStatement(saveSqlQuery);
             preparedStatement.setDate(1, Date.valueOf(startDate));
             preparedStatement.setDate(2, Date.valueOf(endDate));
@@ -135,7 +142,6 @@ public class OrderDao implements IOrderDao {
             preparedStatement.setLong(4, bookId);
             rowsAffected = preparedStatement.executeUpdate();
             preparedStatement.close();
-            bookDao.update(bookId, "placement", (Long) null);
             bookDao.update(bookId, "reader", readerId);
         } catch (Exception error) {
             logger.error(error);
@@ -144,12 +150,12 @@ public class OrderDao implements IOrderDao {
     }
 
     public long update(long id, String property, String value) {
+        final String updateSqlQuery = "update `" + getTableName() + "` set " + property + " = ? where order_id = ?";
         long rowsAffected = 0;
         try {
             PreparedStatement preparedStatement = this.connection.prepareStatement(updateSqlQuery);
-            preparedStatement.setString(1, property);
-            preparedStatement.setString(2, value);
-            preparedStatement.setLong(3, id);
+            preparedStatement.setString(1, value);
+            preparedStatement.setLong(2, id);
             rowsAffected = preparedStatement.executeUpdate();
             preparedStatement.close();
         } catch (Exception error) {
@@ -158,22 +164,24 @@ public class OrderDao implements IOrderDao {
         return rowsAffected;
     }
 
-    public void markAsReturned(long id){
+    public void markAsReturned(long id) {
         BookDao bookDao = DaoFactory.getBookDao();
-        long bookId = this.findById(id).getBookId();
         this.update(id, "status", OrderStatus.returned.toString());
-        bookDao.update(bookId, "reader", (Long) null);
-        bookDao.update(bookId, "placement", bookId+100); //TODO: refactor
+        bookDao.update(this.findById(id).getBookId(), "reader", 0);
     }
 
-    public void markAsLate(long id){
-        if (this.findById(id).getEndDate().isBefore(LocalDate.now())) {
+    public void markAsLate(long id) {
+        Order order = this.findById(id);
+        if (order != null && order.getStatus() == OrderStatus.ongoing && order.getEndDate().isBefore(LocalDate.now())) {
             this.update(id, "status", OrderStatus.late.toString());
         }
     }
 
     public void delete(long id) {
         try {
+            Order order = this.findById(id);
+            if (order.getStatus() != OrderStatus.returned)
+                throw new Exception("Cannot delete order that is not completed");
             PreparedStatement preparedStatement = this.connection.prepareStatement(deleteSqlQuery);
             preparedStatement.setLong(1, id);
             preparedStatement.executeUpdate();

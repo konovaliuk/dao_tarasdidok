@@ -10,9 +10,9 @@ public class Order {
     private long readerId;
     private long bookId;
 
-    public Order(long id, LocalDate startDate, LocalDate endDate, long readerId, long bookId){
+    public Order(long id, OrderStatus orderStatus, LocalDate startDate, LocalDate endDate, long readerId, long bookId) {
         this.orderId = id;
-        this.status = OrderStatus.ongoing;
+        this.status = orderStatus;
         this.startDate = startDate;
         this.endDate = endDate;
         this.readerId = readerId;
@@ -67,8 +67,8 @@ public class Order {
         this.bookId = bookId;
     }
 
-    public String toString(){
+    public String toString() {
         return this.getOrderId() + "\t" + this.getStatus() + "\t" + this.getStartDate() + "\t"
-                + this.getEndDate() + "\t" + this.getBookId() + "\t" + this.getReaderId();
+                + this.getEndDate() + "\t" + this.getReaderId() + "\t" + this.getBookId();
     }
 }

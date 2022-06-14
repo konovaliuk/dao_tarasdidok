@@ -8,7 +8,7 @@ public class Person {
     private String email;
     private String phone;
 
-    public Person(long personId, long roleId, String name, String lastname, String email, String phone){
+    public Person(long personId, long roleId, String name, String lastname, String email, String phone) {
         this.personId = personId;
         this.roleId = roleId;
         this.name = name;

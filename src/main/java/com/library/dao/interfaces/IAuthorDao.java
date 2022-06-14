@@ -9,7 +9,11 @@ public interface IAuthorDao {
 
     Author findById(long id) throws Exception;
 
+    Author findByFullName(String name, String lastname);
+
     long save(String name, String lastname) throws Exception;
+
     long update(long id, String property, String value);
+
     void delete(long id);
 }

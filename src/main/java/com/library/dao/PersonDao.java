@@ -17,14 +17,19 @@ public class PersonDao implements IPersonDao {
     protected Connection connection = null;
     protected final Logger logger = LogManager.getLogger("Person Dao");
     protected final String findAllSqlQuery = "select * from " + getTableName() + "";
-    protected final String findByIdSqlQuery = "select * from" + getTableName() + " where person_id=?";
+    protected final String findByIdSqlQuery = "select * from " + getTableName() + " where person_id=?";
+    protected final String findByPhoneSqlQuery = "select * from " + getTableName() + " where phone=?";
     protected final String saveSqlQuery = "insert into " + getTableName() +
             " (person_role, name, lastname, email, phone)" + " values (?, ?, ?, ?, ?)";
-    protected final String updateSqlQuery = "update " + getTableName() + " set ? = ? where person_id = ?";
     protected final String deleteSqlQuery = "delete from " + getTableName() + " where person_id=?";
 
     public PersonDao() {
-        this.connection = ConnectionPool.createConnection();
+        try {
+            if (this.connection == null || this.connection.isClosed())
+                this.connection = ConnectionPool.createConnection();
+        } catch (SQLException ex) {
+            logger.error(ex);
+        }
     }
 
     public void closeConnection() {
@@ -83,6 +88,23 @@ public class PersonDao implements IPersonDao {
         return person;
     }
 
+    public Person findByPhone(String phone) {
+        Person person = null;
+        try {
+            PreparedStatement preparedStatement = this.connection.prepareStatement(findByPhoneSqlQuery);
+            preparedStatement.setString(1, phone);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                person = getPerson(resultSet);
+            }
+            resultSet.close();
+            preparedStatement.close();
+        } catch (Exception error) {
+            logger.error(error);
+        }
+        return person;
+    }
+
     public long save(long personRole, String name, String lastname, String email, String phone) {
         long rowsAffected = 0;
         try {
@@ -101,12 +123,12 @@ public class PersonDao implements IPersonDao {
     }
 
     public long update(long id, String property, String value) {
+        final String updateSqlQuery = "update " + getTableName() + " set " + property + " = ? where person_id = ?";
         long rowsAffected = 0;
         try {
             PreparedStatement preparedStatement = this.connection.prepareStatement(updateSqlQuery);
-            preparedStatement.setString(1, property);
-            preparedStatement.setString(2, value);
-            preparedStatement.setLong(3, id);
+            preparedStatement.setString(1, value);
+            preparedStatement.setLong(2, id);
             rowsAffected = preparedStatement.executeUpdate();
             preparedStatement.close();
         } catch (Exception error) {

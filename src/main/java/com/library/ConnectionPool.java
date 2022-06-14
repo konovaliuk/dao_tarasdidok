@@ -8,12 +8,14 @@ import java.io.FileInputStream;
 import java.sql.Connection;
 import java.util.Properties;
 
-public class ConnectionPool extends BasicDataSource{
+public class ConnectionPool extends BasicDataSource {
     private static ConnectionPool instance = null;
     private static final Logger logger = LogManager.getLogger("ConnectionPool");
-    private ConnectionPool(){}
 
-    public static ConnectionPool getInstance(){
+    private ConnectionPool() {
+    }
+
+    public static ConnectionPool getInstance() {
         if (instance == null) instance = new ConnectionPool();
         return instance;
     }
@@ -39,7 +41,7 @@ public class ConnectionPool extends BasicDataSource{
             connectionPool.setUsername(applicationProperties.getProperty("mysqlUsername"));
             connectionPool.setPassword(applicationProperties.getProperty("mysqlPassword"));
             connection = connectionPool.getConnection();
-        } catch(Exception exception) {
+        } catch (Exception exception) {
             logger.error(exception);
         }
         return connection;
